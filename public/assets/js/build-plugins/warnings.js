@@ -6,6 +6,8 @@ var warningsPlugin = PHPCI.UiPlugin.extend({
         'phpmd-warnings': 'PHPMD Warnings',
         'phpcs-warnings': 'PHPCS Warnings',
         'phpcs-errors': 'PHPCS Errors',
+        'phpcsdiff-warnings': 'PHPCS Diff Warnings',
+        'phpcsdiff-errors': 'PHPCS Diff Errors',
         'phplint-errors': 'PHPLint Errors',
         'phpunit-errors': 'PHPUnit Errors',
         'phpdoccheck-warnings': 'PHP Docblock Checker Warnings'
@@ -22,7 +24,7 @@ var warningsPlugin = PHPCI.UiPlugin.extend({
           queries.push(PHPCI.registerQuery(key, -1, {num_builds: 10, key: key}));
         }
 
-        $(window).on('phpmd-warnings phpcs-warnings phpcs-errors phplint-errors phpunit-errors phpdoccheck-warnings', function(data) {
+        $(window).on('phpmd-warnings phpcs-warnings phpcs-errors phpcsdiff-warnings phpcsdiff-errors phplint-errors phpunit-errors phpdoccheck-warnings', function(data) {
             self.onUpdate(data);
         });
 

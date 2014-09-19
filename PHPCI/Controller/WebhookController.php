@@ -242,6 +242,112 @@ class WebhookController extends \PHPCI\Controller
         die('OK');
     }
 
+
+    /**
+     * Called by Gitlab Webhooks Merge Request:
+     */
+    public function gitlabpr($project)
+    {
+        $payloadString = file_get_contents("php://input");
+        $payload = json_decode($payloadString, true);
+
+        try {
+
+            if (isset($payload['object_kind']) && $payload['object_kind']=='merge_request') {
+                // If we have merge_request;
+
+                $objectAttributes = $payload['object_attributes'];
+
+                $this->createBuild($project, null, $objectAttributes['source_branch'], null, $objectAttributes['title']);
+
+
+            }
+
+        } catch (\Exception $ex) {
+            header('HTTP/1.1 500 Internal Server Error');
+            header('Ex: ' . $ex->getMessage());
+            die('FAIL');
+        }
+
+        die('OK');
+    }
+
+
+    /**
+     * Called by Gitlab Webhooks Merge Request:
+     */
+    public function gitlabprimg($project)
+    {
+
+
+        $payload = [
+            'requestId' => $this->getParam('requestId'),
+            'target_branch' => $this->getParam('target_branch'),
+            'source_branch' => $this->getParam('source_branch'),
+            'title' => $this->getParam('title'),
+            'created_at' => $this->getParam('created_at'),
+            'updated_at' => $this->getParam('updated_at'),
+        ];
+
+        $extra = md5(json_encode($payload));
+
+        try {
+
+
+                $objectAttributes = $payload;
+
+                $f = $this->checkBuild(
+                     $project,
+                         null,
+                         $objectAttributes['source_branch'],
+                         null,
+                         $objectAttributes['title'],
+                         $extra);
+
+            switch ($f) {
+                case "0":
+                    $status= "pending";
+                    break;
+                case "1":
+                    $status= "failed";
+                    break;
+                case "2":
+                    $status= "passing";
+                    break;
+                case "3":
+                    $status= "failed";
+                    break;
+            }
+            header('Content-Type: image/svg+xml');
+            die(file_get_contents(APPLICATION_PATH . 'public/assets/img/build-' . $status . '.svg'));
+
+
+        } catch (\Exception $ex) {
+            header('HTTP/1.1 500 Internal Server Error');
+            header('Ex: ' . $ex->getMessage());
+            die('FAIL');
+        }
+
+        die('OK');
+    }
+
+    protected function checkBuild($projectId, $commitId, $branch, $committer, $commitMessage, $extra = null){
+        $builds = $this->buildStore->getWhere(['extra' => '"'.$extra.'"']);
+//        $builds = $this->buildStore->getWhere(['id' => 174]);
+//        var_dump($builds);
+        if ($builds['count']) {
+            /** @var \PHPCI\Model\Build $cBuild */
+            $cBuild = $builds['items'][0];
+            return $cBuild->getStatus();
+        }
+
+            $this->createBuild($projectId, $commitId, $branch, $committer, $commitMessage, $extra);
+            var_dump('build!!');
+            return $this->checkBuild($projectId, $commitId, $branch, $committer, $commitMessage, $extra);
+
+
+    }
+
     protected function createBuild($projectId, $commitId, $branch, $committer, $commitMessage, $extra = null)
     {
         // Check if a build already exists for this commit ID:

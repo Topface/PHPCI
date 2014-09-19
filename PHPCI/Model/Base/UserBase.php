@@ -36,8 +36,8 @@ class UserBase extends Model
         'id' => null,
         'email' => null,
         'hash' => null,
-        'is_admin' => null,
         'name' => null,
+        'is_admin' => null,
     );
 
     /**
@@ -48,8 +48,8 @@ class UserBase extends Model
         'id' => 'getId',
         'email' => 'getEmail',
         'hash' => 'getHash',
-        'is_admin' => 'getIsAdmin',
         'name' => 'getName',
+        'is_admin' => 'getIsAdmin',
 
         // Foreign key getters:
     );
@@ -62,8 +62,8 @@ class UserBase extends Model
         'id' => 'setId',
         'email' => 'setEmail',
         'hash' => 'setHash',
-        'is_admin' => 'setIsAdmin',
         'name' => 'setName',
+        'is_admin' => 'setIsAdmin',
 
         // Foreign key setters:
     );
@@ -89,16 +89,14 @@ class UserBase extends Model
             'length' => 250,
             'default' => null,
         ),
-        'is_admin' => array(
-            'type' => 'tinyint',
-            'length' => 1,
-            'default' => null,
-        ),
         'name' => array(
             'type' => 'varchar',
             'length' => 250,
-            'nullable' => true,
             'default' => null,
+        ),
+        'is_admin' => array(
+            'type' => 'int',
+            'length' => 11,
         ),
     );
 
@@ -107,7 +105,7 @@ class UserBase extends Model
     */
     public $indexes = array(
             'PRIMARY' => array('unique' => true, 'columns' => 'id'),
-            'idx_email' => array('unique' => true, 'columns' => 'email'),
+            'email' => array('columns' => 'email'),
     );
 
     /**
@@ -153,18 +151,6 @@ class UserBase extends Model
     }
 
     /**
-    * Get the value of IsAdmin / is_admin.
-    *
-    * @return int
-    */
-    public function getIsAdmin()
-    {
-        $rtn    = $this->data['is_admin'];
-
-        return $rtn;
-    }
-
-    /**
     * Get the value of Name / name.
     *
     * @return string
@@ -172,6 +158,18 @@ class UserBase extends Model
     public function getName()
     {
         $rtn    = $this->data['name'];
+
+        return $rtn;
+    }
+
+    /**
+    * Get the value of IsAdmin / is_admin.
+    *
+    * @return int
+    */
+    public function getIsAdmin()
+    {
+        $rtn    = $this->data['is_admin'];
 
         return $rtn;
     }
@@ -237,6 +235,26 @@ class UserBase extends Model
     }
 
     /**
+    * Set the value of Name / name.
+    *
+    * Must not be null.
+    * @param $value string
+    */
+    public function setName($value)
+    {
+        $this->_validateNotNull('Name', $value);
+        $this->_validateString('Name', $value);
+
+        if ($this->data['name'] === $value) {
+            return;
+        }
+
+        $this->data['name'] = $value;
+
+        $this->_setModified('name');
+    }
+
+    /**
     * Set the value of IsAdmin / is_admin.
     *
     * Must not be null.
@@ -254,23 +272,5 @@ class UserBase extends Model
         $this->data['is_admin'] = $value;
 
         $this->_setModified('is_admin');
-    }
-
-    /**
-    * Set the value of Name / name.
-    *
-    * @param $value string
-    */
-    public function setName($value)
-    {
-        $this->_validateString('Name', $value);
-
-        if ($this->data['name'] === $value) {
-            return;
-        }
-
-        $this->data['name'] = $value;
-
-        $this->_setModified('name');
     }
 }

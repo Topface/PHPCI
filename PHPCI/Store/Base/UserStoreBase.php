@@ -44,22 +44,35 @@ class UserStoreBase extends Store
         return null;
     }
 
-    public function getByEmail($value, $useConnection = 'read')
+    public function getByEmail($value, $limit = null, $useConnection = 'read')
     {
         if (is_null($value)) {
             throw new HttpException('Value passed to ' . __FUNCTION__ . ' cannot be null.');
         }
 
-        $query = 'SELECT * FROM `user` WHERE `email` = :email LIMIT 1';
+        $add = '';
+
+        if ($limit) {
+            $add .= ' LIMIT ' . $limit;
+        }
+
+        $count = null;
+
+        $query = 'SELECT * FROM `user` WHERE `email` = :email' . $add;
         $stmt = Database::getConnection($useConnection)->prepare($query);
         $stmt->bindValue(':email', $value);
 
         if ($stmt->execute()) {
-            if ($data = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-                return new User($data);
-            }
-        }
+            $res = $stmt->fetchAll(\PDO::FETCH_ASSOC);
 
-        return null;
+            $map = function ($item) {
+                return new User($item);
+            };
+            $rtn = array_map($map, $res);
+
+            return array('items' => $rtn, 'count' => $count);
+        } else {
+            return array('items' => array(), 'count' => 0);
+        }
     }
 }

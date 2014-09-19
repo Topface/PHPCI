@@ -30,11 +30,17 @@ class BuildStatusController extends \PHPCI\Controller
     protected $projectStore;
     protected $buildStore;
 
+    /**
+     * @var \PHPCI\Store\UserStore
+     */
+    protected $userStore;
+
     public function init()
     {
         $this->response->disableLayout();
         $this->buildStore      = Store\Factory::getStore('Build');
         $this->projectStore    = Store\Factory::getStore('Project');
+        $this->userStore       = b8\Store\Factory::getStore('User');
     }
 
     /**
@@ -85,6 +91,35 @@ class BuildStatusController extends \PHPCI\Controller
         $status = $this->getStatus($projectId);
         header('Content-Type: image/svg+xml');
         die(file_get_contents(APPLICATION_PATH . 'public/assets/img/build-' . $status . '.svg'));
+    }
+
+
+    public function show($projectId)
+    {
+        $user = $this->userStore->getByEmail('phpci@topface.com');
+        $_SESSION['user_id']    = $user->getId();
+
+        $payload = [
+            'requestId' => $this->getParam('requestId'),
+            'target_branch' => $this->getParam('target_branch'),
+            'source_branch' => $this->getParam('source_branch'),
+            'title' => $this->getParam('title'),
+            'created_at' => $this->getParam('created_at'),
+            'updated_at' => $this->getParam('updated_at'),
+        ];
+
+        $extra = md5(json_encode($payload));
+        $builds = $this->buildStore->getWhere(['extra' => '"'.$extra.'"']);
+
+        /** @var \PHPCI\Model\Build $cBuild */
+        $cBuild = $builds['items'][0];
+        $buildId = $cBuild->getId();
+
+
+        header('Location: ' . PHPCI_URL.'/build/view/'.$buildId);
+
+
+
     }
 
     public function view($projectId)

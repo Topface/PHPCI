@@ -75,7 +75,9 @@ class TapParser
     {
         $rtn = array();
 
+//        $file = fopen('/phpci/log/1.txt', 'w');
         foreach ($lines as $line) {
+//            fwrite($file, $line . "\n".'---'."\n");
             $matches = array();
 
             if (preg_match(self::TEST_LINE_PATTERN, $line, $matches)) {
@@ -97,6 +99,7 @@ class TapParser
             }
         }
 
+//        fclose($file);
         return $rtn;
     }
 
