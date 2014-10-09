@@ -105,7 +105,8 @@ class BuildStatusController extends \PHPCI\Controller
             'source_branch' => $this->getParam('source_branch'),
             'title' => $this->getParam('title'),
             'created_at' => $this->getParam('created_at'),
-            'updated_at' => $this->getParam('updated_at'),
+//            'updated_at' => $this->getParam('updated_at'),
+            'last_commit' => $this->getParam('last_commit'),
         ];
 
         $extra = md5(json_encode($payload));

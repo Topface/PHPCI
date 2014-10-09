@@ -20,6 +20,7 @@ use PHPCI\Service\BuildService;
  * @author       Dan Cryer <dan@block8.co.uk>
  * @author       Sami Tikka <stikka@iki.fi>
  * @author       Alex Russell <alex@clevercherry.com>
+ * @author       Stan Gumeniuk <s.gumeniuk@topafce.com>
  * @package      PHPCI
  * @subpackage   Web
  */
@@ -286,7 +287,8 @@ class WebhookController extends \PHPCI\Controller
             'source_branch' => $this->getParam('source_branch'),
             'title' => $this->getParam('title'),
             'created_at' => $this->getParam('created_at'),
-            'updated_at' => $this->getParam('updated_at'),
+//            'updated_at' => $this->getParam('updated_at'),
+            'last_commit' => $this->getParam('last_commit'),
         ];
 
         $extra = md5(json_encode($payload));
@@ -296,13 +298,14 @@ class WebhookController extends \PHPCI\Controller
 
                 $objectAttributes = $payload;
 
-                $f = $this->checkBuild(
-                     $project,
-                         null,
-                         $objectAttributes['source_branch'],
-                         null,
-                         $objectAttributes['title'],
-                         $extra);
+            $f = $this->checkBuild(
+                $project,
+                $payload['last_commit'],
+                $objectAttributes['source_branch'],
+                null,
+                $objectAttributes['title'],
+                $extra
+            );
 
             switch ($f) {
                 case "0":
@@ -333,8 +336,6 @@ class WebhookController extends \PHPCI\Controller
 
     protected function checkBuild($projectId, $commitId, $branch, $committer, $commitMessage, $extra = null){
         $builds = $this->buildStore->getWhere(['extra' => '"'.$extra.'"']);
-//        $builds = $this->buildStore->getWhere(['id' => 174]);
-//        var_dump($builds);
         if ($builds['count']) {
             /** @var \PHPCI\Model\Build $cBuild */
             $cBuild = $builds['items'][0];
@@ -342,7 +343,6 @@ class WebhookController extends \PHPCI\Controller
         }
 
             $this->createBuild($projectId, $commitId, $branch, $committer, $commitMessage, $extra);
-            var_dump('build!!');
             return $this->checkBuild($projectId, $commitId, $branch, $committer, $commitMessage, $extra);
 
 
