@@ -35,16 +35,32 @@ class RemoteGitBuild extends Build
     {
         $key = trim($this->getProject()->getSshPrivateKey());
 
-        if (!empty($key)) {
-            $success = $this->cloneBySsh($builder, $buildPath);
-        } else {
-            $success = $this->cloneByHttp($builder, $buildPath);
+
+        $s = $this->checkProjectLocalRepo($builder, $buildPath);
+        $buildDir = $this->getProjectLocalRepoDir($builder, $buildPath);
+
+
+        $success = false;
+
+        if (!$s){
+            $builder->log('Start clone project.');
+            if (!empty($key)) {
+                $success = $this->cloneBySsh($builder, $buildDir);
+            } else {
+                $success = $this->cloneByHttp($builder, $buildDir);
+            }
+            if (!$success) {
+                $builder->logFailure('Failed to clone remote git repository.');
+                return false;
+            }
+
+            $builder->log('Succefully cloned.');
         }
 
-        if (!$success) {
-            $builder->logFailure('Failed to clone remote git repository.');
-            return false;
-        }
+        $this->copyLocaleRepoToBuild($builder, $buildDir,$buildPath);
+        $this->postCopyLocaleRepoToBuild($builder,$buildPath);
+        $this->postCloneSetup($builder,$buildPath);
+
 
         return $this->handleConfig($builder, $buildPath);
     }
@@ -70,6 +86,60 @@ class RemoteGitBuild extends Build
         }
 
         return $success;
+    }
+
+
+    protected function postCopyLocaleRepoToBuild(Builder $builder, $to)
+    {
+        $success = true;
+        $commit = $this->getCommitId();
+
+        $keyFile = $this->writeSshKey($to);
+        $gitSshWrapper = $this->writeSshWrapper($to, $keyFile);
+
+
+        $builder->log('Start pull ');
+
+
+        $cmd = 'export GIT_SSH="'.$gitSshWrapper.'" && ';
+        $cmd .= ' cd "%s" ';
+
+        $cmd .= ' && git fetch --quiet';
+        $success = $builder->executeCommand($cmd, $to);
+        $builder->log('Git pull Log is '.(int)$success);
+
+        return $success;
+    }
+
+
+    protected function copyLocaleRepoToBuild(Builder $builder,$from, $to)
+    {
+        if (!file_exists($to)) {
+            mkdir($to);
+        }
+
+        $success = $builder->executeCommand("cp -r %s/. %s", $from, $to);
+        if (!$success) {
+            $builder->logFailure('Failed to clone remote git repository.');
+        }
+
+        $builder->log('Copy from '. $from.' to '. $to .'success.');
+
+    }
+
+    protected function checkProjectLocalRepo(Builder $builder, $cloneTo)
+    {
+        $buildDir = $this->getProjectLocalRepoDir($builder, $cloneTo);
+
+        return file_exists($buildDir);
+    }
+
+    protected function getProjectLocalRepoDir(Builder $builder, $cloneTo)
+    {
+        $buildDir = dirname($cloneTo);
+
+        $buildDir .= '/git/'.$builder->getBuildProjectTitle();
+        return $buildDir;
     }
 
     /**
@@ -117,7 +187,7 @@ class RemoteGitBuild extends Build
     {
         $success = true;
         $commit = $this->getCommitId();
-
+        $builder->log('Commit is '. $commit);
         if (!empty($commit) && $commit != 'Manual') {
             $cmd = 'cd "%s"';
 
@@ -128,6 +198,7 @@ class RemoteGitBuild extends Build
             $cmd .= ' && git checkout %s --quiet';
 
             $success = $builder->executeCommand($cmd, $cloneTo, $this->getCommitId());
+            $builder->log('Log is'.$success. ' '. $this->getCommitId());
         }
 
         return $success;
