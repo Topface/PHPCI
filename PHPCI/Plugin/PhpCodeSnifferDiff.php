@@ -146,7 +146,7 @@ class PhpCodeSnifferDiff implements PHPCI\Plugin, PHPCI\ZeroConfigPlugin
 
         $this->phpci->logExecOutput(false);
 
-        $cmd = 'cd '.$this->phpci->buildPath.' && git diff `git merge-base origin/master '.$this->build->getBranch().'`  --name-only --diff-filter=ACMRT -- "*.php" | xargs -P8 -- '.$phpcs .' --report=json %s %s %s %s %s';
+        $cmd = 'cd '.$this->phpci->buildPath.' && git diff `git merge-base origin/master '.$this->build->getCommitId().'`  --name-only --diff-filter=ACMRT -- "*.php" | xargs -P8 -- '.$phpcs .' --encoding=utf-8 --report=json %s %s %s %s %s';
         $this->phpci->log($cmd);
         $this->phpci->executeCommand(
             $cmd,
