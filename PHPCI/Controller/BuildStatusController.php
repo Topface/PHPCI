@@ -97,6 +97,7 @@ class BuildStatusController extends \PHPCI\Controller
     public function show($projectId)
     {
         $user = $this->userStore->getByEmail('phpci@topface.com');
+        $user = $user['items'][0];
         $_SESSION['user_id']    = $user->getId();
 
         $payload = [
