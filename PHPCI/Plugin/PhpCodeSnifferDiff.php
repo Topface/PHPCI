@@ -146,8 +146,8 @@ class PhpCodeSnifferDiff implements PHPCI\Plugin, PHPCI\ZeroConfigPlugin
 
         $this->phpci->logExecOutput(false);
 
-        $cmd = 'cd '.$this->phpci->buildPath.' && git diff `git merge-base origin/master '.$this->build->getCommitId().'`  --name-only --diff-filter=ACMRT -- "*.php" | xargs -P8 -- '.$phpcs .' --encoding=utf-8 --report=json %s %s %s %s %s';
-        $this->phpci->log($cmd);
+        $cmd = 'cd '.$this->phpci->buildPath.' && git diff `git merge-base origin/master '.$this->build->getCommitId().'`  --name-only --diff-filter=ACMRT -- "*.php" | xargs -P8 -r  -- '.$phpcs .' --encoding=utf-8 --report=json %s %s %s %s %s';
+//        $this->phpci->log($cmd);
         $this->phpci->executeCommand(
             $cmd,
             $standard,
@@ -158,21 +158,28 @@ class PhpCodeSnifferDiff implements PHPCI\Plugin, PHPCI\ZeroConfigPlugin
         );
 
         $output = $this->phpci->getLastOutput();
-        list($errors, $warnings, $data) = $this->processReport($output);
+//        $this->phpci->log($output); //wtf?!
 
-        $this->phpci->logExecOutput(true);
+        if ($output) {
+            list($errors, $warnings, $data) = $this->processReport($output);
 
-        $success = true;
-        $this->build->storeMeta('phpcsdiff-warnings', $warnings);
-        $this->build->storeMeta('phpcsdiff-errors', $errors);
-        $this->build->storeMeta('phpcsdiff-data', $data);
+            $this->phpci->logExecOutput(true);
 
-        if ($this->allowed_warnings != -1 && $warnings > $this->allowed_warnings) {
-            $success = false;
-        }
+            $success = true;
+            $this->build->storeMeta('phpcsdiff-warnings', $warnings);
+            $this->build->storeMeta('phpcsdiff-errors', $errors);
+            $this->build->storeMeta('phpcsdiff-data', $data);
 
-        if ($this->allowed_errors != -1 && $errors > $this->allowed_errors) {
-            $success = false;
+            if ($this->allowed_warnings != -1 && $warnings > $this->allowed_warnings) {
+                $success = false;
+            }
+
+            if ($this->allowed_errors != -1 && $errors > $this->allowed_errors) {
+                $success = false;
+            }
+        } else {
+            $this->phpci->log('Nothing to check');
+            $success = true;
         }
 
         return $success;
