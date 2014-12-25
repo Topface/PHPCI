@@ -338,7 +338,8 @@ class WebhookController extends \PHPCI\Controller
         $builds = $this->buildStore->getWhere(['extra' => '"'.$extra.'"']);
         if ($builds['count']) {
             /** @var \PHPCI\Model\Build $cBuild */
-            $cBuild = $builds['items'][0];
+            $cBuild = end($builds['items']);
+
             return $cBuild->getStatus();
         }
 

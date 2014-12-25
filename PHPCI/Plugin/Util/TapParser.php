@@ -8,6 +8,8 @@ class TapParser
     const TEST_LINE_PATTERN = '/(ok|not ok)\s+[0-9]+\s+\-\s+([^\n]+)::([^\n]+)/';
     const TEST_MESSAGE_PATTERN = '/message\:\s+\'([^\']+)\'/';
     const TEST_COVERAGE_PATTERN = '/Generating code coverage report/';
+    const TEST_SKIP_PATTERN = '/ok\s+[0-9]+\s+\-\s+#\s+SKIP/';
+    const TEST_LINE_INCOMPLETE = '/(ok|not ok)\s+[0-9]+\s+\-\s+([^\n]+)::([^\n]+)( # TODO Incomplete Test)/';
 
     /**
      * @var string
@@ -80,7 +82,15 @@ class TapParser
 //            fwrite($file, $line . "\n".'---'."\n");
             $matches = array();
 
-            if (preg_match(self::TEST_LINE_PATTERN, $line, $matches)) {
+            if (preg_match(self::TEST_LINE_INCOMPLETE, $line, $matches)) {
+                $rtn[] = array(
+                    'pass' => true,
+                    'skippedinci' => true,
+                    'suite' => $matches[2],
+                    'test' => $matches[3],
+                    'message' => 'Skipped in CI'
+                );
+            }elseif (preg_match(self::TEST_LINE_PATTERN, $line, $matches)) {
                 $ok = ($matches[1] == 'ok' ? true : false);
 
                 if (!$ok) {
@@ -94,7 +104,14 @@ class TapParser
                 );
 
                 $rtn[] = $item;
-            } elseif (preg_match(self::TEST_MESSAGE_PATTERN, $line, $matches)) {
+            } elseif (preg_match(self::TEST_SKIP_PATTERN, $line, $matches)) {
+                $rtn[] = array(
+                    'pass' => true,
+                    'message' => 'SKIP: ',
+                    'skippedinci' => true,
+                );
+            }
+            elseif (preg_match(self::TEST_MESSAGE_PATTERN, $line, $matches)) {
                 $rtn[count($rtn) - 1]['message'] = $matches[1];
             }
         }

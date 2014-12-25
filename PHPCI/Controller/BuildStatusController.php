@@ -114,7 +114,7 @@ class BuildStatusController extends \PHPCI\Controller
         $builds = $this->buildStore->getWhere(['extra' => '"'.$extra.'"']);
 
         /** @var \PHPCI\Model\Build $cBuild */
-        $cBuild = $builds['items'][0];
+        $cBuild = end($builds['items']);
         $buildId = $cBuild->getId();
 
 
