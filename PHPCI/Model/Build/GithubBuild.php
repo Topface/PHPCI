@@ -73,7 +73,9 @@ class GithubBuild extends RemoteGitBuild
 
         $phpciUrl = \b8\Config::getInstance()->get('phpci.url');
         $params = array(    'state' => $status,
-                            'target_url' => $phpciUrl . '/build/view/' . $this->getId());
+                            'target_url' => $phpciUrl . '/build/view/' . $this->getId(),
+                            'context' => 'phpci'
+        );
         $headers = array(
             'Authorization: token ' . $token,
             'Content-Type: application/x-www-form-urlencoded'
@@ -153,11 +155,42 @@ class GithubBuild extends RemoteGitBuild
 
         try {
             if (!empty($buildType) && $buildType == 'pull_request') {
+
+                $keyFile = $this->writeSshKey($cloneTo);
+
+                $builder->log('path to key: '.$keyFile);
+//                if (!IS_WIN) {
+                    $gitSshWrapper = $this->writeSshWrapper($cloneTo, $keyFile);
+//                }
+
+                $builder->log('path to wrapper: '.$gitSshWrapper);
+
+
+
+
                 $remoteUrl = $this->getExtra('remote_url');
                 $remoteBranch = $this->getExtra('remote_branch');
 
-                $cmd = 'cd "%s" && git checkout -b phpci/' . $this->getId() . ' %s && git pull -q --no-edit %s %s';
-                $success = $builder->executeCommand($cmd, $cloneTo, $this->getBranch(), $remoteUrl, $remoteBranch);
+                $cmd = 'cd "%s" && export GIT_SSH="'.$gitSshWrapper.'" && ';
+
+//                $cmd .= 'cd "%s" && git checkout -b phpci/' . $this->getId() . ' %s && git pull -q --no-edit %s %s';
+
+//                $cmd .= 'cd "%s" && git pull -q --no-edit %s %s && git checkout -b phpci/' . $this->getId() . ' %s ';
+//                $cmd .= 'cd "%s" && git fetch --quiet %s %s &&  git checkout  -b phpci/' . $this->getId() . ' %s ';
+                $cmd .= 'cd "%s" && git fetch --quiet %s %s  ';
+
+
+                $remoteUrlSsh = str_replace('https://github.com/', 'git@github.com:',$remoteUrl);
+                $builder->log('url: ' . $remoteUrl);
+                $builder->log('repo: ' . $remoteUrlSsh);
+                $builder->log('branch: ' . $remoteBranch);
+//                $success = $builder->executeCommand($cmd,$cloneTo, $cloneTo, 'master', $remoteUrlSsh, $remoteBranch);
+
+//                $success = $builder->executeCommand($cmd,$cloneTo, $cloneTo , $remoteUrlSsh, $remoteBranch ,  'master');
+//                $success = $builder->executeCommand($cmd,$cloneTo, $cloneTo , $remoteUrlSsh, $remoteBranch  ,  $this->getBranch());
+                $success = $builder->executeCommand($cmd,$cloneTo, $cloneTo , $remoteUrlSsh, $remoteBranch );
+                unlink($keyFile);
+                unlink($gitSshWrapper);
             }
         } catch (\Exception $ex) {
             $success = false;
@@ -221,6 +254,10 @@ class GithubBuild extends RemoteGitBuild
         $helper = new Diff();
         $lines = $helper->getLinePositions($diff);
 
-        return $lines[$line];
+        if (isset($lines[$line])){
+            return $lines[$line];
+        }
+
+        return null;
     }
 }
