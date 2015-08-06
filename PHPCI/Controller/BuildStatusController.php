@@ -31,6 +31,11 @@ class BuildStatusController extends \PHPCI\Controller
     protected $buildStore;
 
     /**
+     * @var \PHPCI\Store\UserStore
+     */
+    protected $userStore;
+
+    /**
      * Initialise the controller, set up stores and services.
      */
     public function init()

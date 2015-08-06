@@ -139,7 +139,6 @@ class ProjectBase extends Model
         ),
         'build_config' => array(
             'type' => 'text',
-            'nullable' => true,
             'default' => null,
         ),
         'ssh_public_key' => array(
@@ -164,7 +163,7 @@ class ProjectBase extends Model
     */
     public $indexes = array(
             'PRIMARY' => array('unique' => true, 'columns' => 'id'),
-            'idx_project_title' => array('columns' => 'title'),
+            'title' => array('columns' => 'title'),
     );
 
     /**
@@ -474,10 +473,12 @@ class ProjectBase extends Model
     /**
     * Set the value of BuildConfig / build_config.
     *
+    * Must not be null.
     * @param $value string
     */
     public function setBuildConfig($value)
     {
+        $this->_validateNotNull('BuildConfig', $value);
         $this->_validateString('BuildConfig', $value);
 
         if ($this->data['build_config'] === $value) {

@@ -166,7 +166,7 @@ class BuildBase extends Model
     public $indexes = array(
             'PRIMARY' => array('unique' => true, 'columns' => 'id'),
             'project_id' => array('columns' => 'project_id'),
-            'idx_status' => array('columns' => 'status'),
+            'status' => array('columns' => 'status'),
     );
 
     /**
