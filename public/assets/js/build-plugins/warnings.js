@@ -3,15 +3,8 @@ var warningsPlugin = ActiveBuild.UiPlugin.extend({
     css: 'col-lg-6 col-md-6 col-sm-12 col-xs-12',
     title: Lang.get('quality_trend'),
     keys: {
-        'codeception-errors': Lang.get('codeception_errors'),
-        'phpmd-warnings': Lang.get('phpmd_warnings'),
         'phpcs-warnings': Lang.get('phpcs_warnings'),
         'phpcs-errors': Lang.get('phpcs_errors'),
-        'phplint-errors': Lang.get('phplint_errors'),
-        'phpunit-errors': Lang.get('phpunit_errors'),
-        'phpdoccheck-warnings': Lang.get('phpdoccheck'),
-        'phptallint-errors': Lang.get('phptal_errors'),
-        'phptallint-warnings': Lang.get('phptal_warnings')
     },
     data: {},
     displayOnUpdate: false,
@@ -25,7 +18,7 @@ var warningsPlugin = ActiveBuild.UiPlugin.extend({
           queries.push(ActiveBuild.registerQuery(key, -1, {num_builds: 10, key: key}));
         }
 
-        $(window).on('codeception-errors phpmd-warnings phpcs-warnings phptallint-warnings phptallint-errors phpcs-errors phplint-errors phpunit-errors phpdoccheck-warnings', function(data) {
+        $(window).on('phpcs-warnings phpcs-errors', function(data) {
             self.onUpdate(data);
         });
 
