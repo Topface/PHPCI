@@ -13,6 +13,7 @@ define('PHPCI_IS_CONSOLE', true);
 require('bootstrap.php');
 
 use PHPCI\Command\RunCommand;
+use PHPCI\Command\CheckCommand;
 use PHPCI\Command\RebuildCommand;
 use PHPCI\Command\GenerateCommand;
 use PHPCI\Command\UpdateCommand;
@@ -21,6 +22,7 @@ use PHPCI\Command\DaemonCommand;
 use PHPCI\Command\PollCommand;
 use PHPCI\Command\CreateAdminCommand;
 use PHPCI\Command\CreateBuildCommand;
+use PHPCI\Command\InitGitsCommand;
 use PHPCI\Service\BuildService;
 use Symfony\Component\Console\Application;
 use b8\Store\Factory;
@@ -28,7 +30,9 @@ use b8\Store\Factory;
 $application = new Application();
 
 $application->add(new RunCommand($loggerConfig->getFor('RunCommand')));
+$application->add(new CheckCommand($loggerConfig->getFor('RunCommand')));
 $application->add(new RebuildCommand($loggerConfig->getFor('RunCommand')));
+$application->add(new InitGitsCommand($loggerConfig->getFor('RunCommand')));
 $application->add(new InstallCommand);
 $application->add(new UpdateCommand($loggerConfig->getFor('UpdateCommand')));
 $application->add(new GenerateCommand);
