@@ -1,16 +1,16 @@
 var phpcsPlugin = ActiveBuild.UiPlugin.extend({
-    id: 'build-phpcs',
+    id: 'build-phpcsdiff',
     css: 'col-lg-12 col-md-12 col-sm-12 col-xs-12',
-    title: Lang.get('phpcs'),
+    title: 'PHP Code Sniffer Diff',
     lastData: null,
     box: true,
     rendered: false,
 
     register: function() {
         var self = this;
-        var query = ActiveBuild.registerQuery('phpcs-data', -1, {key: 'phpcs-data'})
+        var query = ActiveBuild.registerQuery('phpcsdiff-data', -1, {key: 'phpcsdiff-data'})
 
-        $(window).on('phpcs-data', function(data) {
+        $(window).on('phpcsdiff-data', function(data) {
             self.onUpdate(data);
         });
 
@@ -22,14 +22,14 @@ var phpcsPlugin = ActiveBuild.UiPlugin.extend({
     },
 
     render: function() {
-        return $('<div class="table-responsive"><table class="table" id="phpcs-data">' +
+        return $('<table class="table" id="phpcsdiff-data">' +
             '<thead>' +
             '<tr>' +
             '   <th>'+Lang.get('file')+'</th>' +
             '   <th>'+Lang.get('line')+'</th>' +
             '   <th>'+Lang.get('message')+'</th>' +
             '</tr>' +
-            '</thead><tbody></tbody></table></div>');
+            '</thead><tbody></tbody></table>');
     },
 
     onUpdate: function(e) {
@@ -42,7 +42,7 @@ var phpcsPlugin = ActiveBuild.UiPlugin.extend({
         this.lastData = e.queryData;
 
         var errors = this.lastData[0].meta_value;
-        var tbody = $('#phpcs-data tbody');
+        var tbody = $('#phpcsdiff-data tbody');
         tbody.empty();
 
         if (errors.length == 0) {
