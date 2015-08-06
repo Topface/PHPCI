@@ -41,6 +41,7 @@
         "monolog/monolog": "~1.6",
         "pimple/pimple": "~1.1",
         "robmorgan/phinx": "~0.4",
+        "maknz/slack": "dev-master",
         "sensiolabs/ansi-to-html": "~1.1",
         "jakub-onderka/php-parallel-lint": "0.8.*"
     },
@@ -54,6 +55,7 @@
         "phpmd/phpmd": "~2.0",
         "squizlabs/php_codesniffer": "~2.3",
         "block8/php-docblock-checker": "~1.0",
+        "maknz/slack" : "dev-master",
         "phploc/phploc": "~2.0"
     },
 
