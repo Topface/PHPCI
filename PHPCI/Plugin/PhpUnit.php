@@ -199,7 +199,13 @@ class PhpUnit implements PHPCI\Plugin, PHPCI\ZeroConfigPlugin
 
             $phpunit = $this->phpci->findBinary('phpunit');
 
-            $cmd = $phpunit . ' --tap %s -c "%s" ' . $this->coverage . $this->path;
+            if (!$phpunit) {
+                $this->phpci->logFailure(PHPCI\Helper\Lang::get('could_not_find', 'phpunit'));
+                return false;
+            }
+
+
+            $cmd = 'export APPLICATION_PLATFORM_ID=254 && export SHELL_MODE_SCRIPT=phpunit &&' . $phpunit . ' -d  memory_limit=4000000M --tap %s -c "%s" ' . $this->coverage . $this->path;
             $success = $this->phpci->executeCommand($cmd, $this->args, $this->phpci->buildPath . $configPath);
 
             if ($this->runFrom) {
@@ -224,6 +230,11 @@ class PhpUnit implements PHPCI\Plugin, PHPCI\ZeroConfigPlugin
             chdir($this->phpci->buildPath);
 
             $phpunit = $this->phpci->findBinary('phpunit');
+
+            if (!$phpunit) {
+                $this->phpci->logFailure(PHPCI\Helper\Lang::get('could_not_find', 'phpunit'));
+                return false;
+            }
 
             $cmd = $phpunit . ' --tap %s "%s"';
             $success = $this->phpci->executeCommand($cmd, $this->args, $this->phpci->buildPath . $directory);
