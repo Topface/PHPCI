@@ -100,9 +100,7 @@ class Build extends BuildBase
         $build_config = null;
 
         // Try phpci.yml first:
-        if (is_file($buildPath . '/phpci.yml')) {
-            $build_config = file_get_contents($buildPath . '/phpci.yml');
-        }
+        $build_config = $this->openConfigFile($buildPath);
 
         // Try getting the project build config from the database:
         if (empty($build_config)) {
@@ -119,8 +117,32 @@ class Build extends BuildBase
             $build_config = $yamlParser->parse($build_config);
         }
 
+
+        if (isset($build_config['build_settings']['config_file'])){
+            $build_config = $this->openConfigFile($buildPath, $build_config['build_settings']['config_file']);
+            if (empty($build_config)) {
+                $build_config = $this->getZeroConfigPlugins($builder);
+            }
+        }
+
         $builder->setConfigArray($build_config);
         return true;
+    }
+
+    /**
+     * Try to open config file
+     * @param $buildPath
+     * @param string $fileName
+     * @return null|string
+     */
+    protected function openConfigFile($buildPath, $fileName='/phpci.yml')
+    {
+        $build_config = null;
+        if (is_file($buildPath . $fileName)) {
+            $build_config = file_get_contents($buildPath . $fileName);
+        }
+
+        return $build_config;
     }
 
     /**
@@ -228,7 +250,7 @@ class Build extends BuildBase
         if (!$this->getId()) {
             return null;
         }
-        return PHPCI_BUILD_ROOT_DIR . $this->getId();
+        return PHPCI_BUILD_ROOT_DIR . $this->getId() ;
     }
 
     /**
