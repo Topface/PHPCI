@@ -12,7 +12,7 @@ use PHPCI\Logging\LoggerConfig;
 
 $timezone = ini_get('date.timezone');
 if (empty($timezone)) {
-    date_default_timezone_set('UTC');
+    date_default_timezone_set('Europe/Moscow');
 }
 
 $configFile = dirname(__FILE__) . '/PHPCI/config.yml';
