@@ -1,6 +1,7 @@
 <?php
 /**
  * PHPCI - Continuous Integration for PHP
+ *
  * @copyright    Copyright 2014, Block 8 Limited.
  * @license      https://github.com/Block8/PHPCI/blob/master/LICENSE.md
  * @link         https://www.phptesting.org/
@@ -63,6 +64,7 @@ class SlackNotify implements \PHPCI\Plugin
             if (isset($options['icon'])) {
                 $this->icon = $options['icon'];
             }
+
         } else {
             throw new \Exception('Please define the webhook_url for slack_notify plugin!');
         }
