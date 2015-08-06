@@ -1,21 +1,16 @@
-FROM ubuntu:14.04
-MAINTAINER Dan Cryer dan.cryer@block8.co.uk
+FROM docker.core.tf/topface-dev
 
-RUN echo "deb http://ppa.launchpad.net/ondrej/php5/ubuntu trusty main" >> /etc/apt/sources.list
-RUN echo "deb http://archive.ubuntu.com/ubuntu/ precise universe" >> /etc/apt/sources.list
-RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C300EE8C E5267A6C 0xcbcb082a1bb943db
-RUN apt-get update
+MAINTAINER Stan Gumeniuk s.gumeniuk@topface.com
 
-# Install PHP:
-RUN apt-get install -qy git-core php5-common php5-cli php5-curl php5-imap php5-mysqlnd
+# docker build -t topface/phpci .
 
-# Give Git some fake user details to prevent it asking when trying to test merges:
-RUN git config --global user.name "PHPCI"
-RUN git config --global user.email "hello@php.ci"
+RUN apt-get update && apt-get install -y gawk && echo "zend_extension=xdebug.so" > /etc/php5/mods-available/xdebug.ini && curl -sS https://getcomposer.org/installer | php && mv composer.phar /usr/bin/composer
+
 
 ADD ./ /phpci
 
-RUN php -r "readfile('https://getcomposer.org/installer');" | php
-RUN mv composer.phar /phpci/composer
+RUN chmod u+x /phpci/daemon.sh && chown -R www-data /phpci && echo 'root:12345' |chpasswd && passwd www-data -d && cd /phpci && git config --global core.compression 0 && chmod 777 /var/run/ && chmod 777 /bin/
 
-CMD /phpci/daemonise phpci:daemonise
+EXPOSE 22
+
+CMD /phpci/daemon.sh
