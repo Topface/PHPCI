@@ -15,6 +15,7 @@ use Monolog\Logger;
 use PHPCI\Helper\Lang;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Yaml\Parser;
 use PHPCI\Model\Build;
@@ -42,6 +43,7 @@ class PollCommand extends Command
     {
         $this
             ->setName('phpci:poll-github')
+            ->addOption('project_id', null, InputOption::VALUE_OPTIONAL, 'project_id')
             ->setDescription(Lang::get('poll_github'));
     }
 
@@ -65,7 +67,14 @@ class PollCommand extends Command
 
         $this->logger->addInfo(Lang::get('finding_projects'));
         $projectStore = Factory::getStore('Project');
-        $result = $projectStore->getWhere();
+
+        if ($projectId = $input->getOption('project_id')) {
+            $criteria = array('id' => $projectId);
+            $result = $projectStore->getWhere($criteria);
+        } else {
+            $result = $projectStore->getWhere();
+        }
+
         $this->logger->addInfo(Lang::get('found_n_projects', count($result['items'])));
 
         foreach ($result['items'] as $project) {
