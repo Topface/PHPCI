@@ -16,10 +16,11 @@ use PHPCI\Model\Build;
 /**
 * PHP Code Sniffer Plugin - Allows PHP Code Sniffer testing.
 * @author       Dan Cryer <dan@block8.co.uk>
+* @author       Stan Gumeniuk <s.gumeniuk@topface.com>
 * @package      PHPCI
 * @subpackage   Plugins
 */
-class PhpCodeSniffer implements PHPCI\Plugin, PHPCI\ZeroConfigPlugin
+class PhpCodeSnifferDiffOnlyLines implements PHPCI\Plugin, PHPCI\ZeroConfigPlugin
 {
     /**
      * @var \PHPCI\Builder
@@ -72,13 +73,6 @@ class PhpCodeSniffer implements PHPCI\Plugin, PHPCI\ZeroConfigPlugin
      */
     protected $ignore;
 
-    /**
-     * Check if this plugin can be executed.
-     * @param $stage
-     * @param Builder $builder
-     * @param Build $build
-     * @return bool
-     */
     public static function canExecute($stage, Builder $builder, Build $build)
     {
         if ($stage == 'test') {
@@ -127,10 +121,6 @@ class PhpCodeSniffer implements PHPCI\Plugin, PHPCI\ZeroConfigPlugin
         $this->setOptions($options);
     }
 
-    /**
-     * Handle this plugin's options.
-     * @param $options
-     */
     protected function setOptions($options)
     {
         foreach (array('directory', 'standard', 'path', 'ignore', 'allowed_warnings', 'allowed_errors') as $key) {
@@ -140,53 +130,72 @@ class PhpCodeSniffer implements PHPCI\Plugin, PHPCI\ZeroConfigPlugin
         }
     }
 
-    /**
-    * Runs PHP Code Sniffer in a specified directory, to a specified standard.
-    */
     public function execute()
     {
         list($ignore, $standard, $suffixes) = $this->getFlags();
 
         $phpcs = $this->phpci->findBinary('phpcs');
 
+        if (!$phpcs) {
+            $this->phpci->logFailure('Could not find phpcs.');
+            return false;
+        }
+
         $this->phpci->logExecOutput(false);
 
-        $cmd = $phpcs . ' --report=json %s %s %s %s %s "%s"';
+        $cmd = 'cd '.$this->phpci->buildPath.' && git diff `git merge-base origin/master '.$this->build->getCommitId().'`  --name-only --diff-filter=ACMRT -- "*.php" | xargs -P8 -r  -- '.$phpcs .' --encoding=utf-8 --report=json %s %s %s %s %s';
         $this->phpci->executeCommand(
             $cmd,
             $standard,
             $suffixes,
             $ignore,
             $this->tab_width,
-            $this->encoding,
-            $this->phpci->buildPath . $this->path
+            $this->encoding
         );
 
         $output = $this->phpci->getLastOutput();
-        list($errors, $warnings, $data) = $this->processReport($output);
 
-        $this->phpci->logExecOutput(true);
+        if ($output) {
 
-        $success = true;
-        $this->build->storeMeta('phpcs-warnings', $warnings);
-        $this->build->storeMeta('phpcs-errors', $errors);
-        $this->build->storeMeta('phpcs-data', $data);
 
-        if ($this->allowed_warnings != -1 && $warnings > $this->allowed_warnings) {
-            $success = false;
-        }
 
-        if ($this->allowed_errors != -1 && $errors > $this->allowed_errors) {
-            $success = false;
+            $cmd = 'cd '.$this->phpci->buildPath.' && git diff `git merge-base origin/master '.$this->build->getCommitId().'`   --diff-filter=ACMRT -- "*.php" | ./../../../showlines.awk show_path=1 show_hunk=0 show_header=0';
+
+            $this->phpci->executeCommand($cmd);
+
+            $output2 = $this->phpci->getLastOutput();
+
+//            $this->phpci->log(print_r($output2,true));
+
+            $diffLines = $this->parseLineDiffOutput($output2);
+            list($errors, $warnings, $data) = $this->processReport($output,$diffLines);
+//            list($errors, $warnings, $data) = $this->processReport($output);
+
+            $this->phpci->logExecOutput(true);
+
+            $success = true;
+            $this->build->storeMeta('phpcsdifflines-warnings', $warnings);
+            $this->build->storeMeta('phpcsdifflines-errors', $errors);
+            $this->build->storeMeta('phpcsdifflines-data', $data);
+
+            if ($this->allowed_warnings != -1 && $warnings > $this->allowed_warnings) {
+                $this->phpci->log("Allow warn:".$this->allowed_warnings);
+                $success = false;
+            }
+
+            if ($this->allowed_errors != -1 && $errors > $this->allowed_errors) {
+                $this->phpci->log("Allow allowed_errors:".$this->allowed_errors);
+                $this->phpci->log("errors:".$errors);
+                $success = false;
+            }
+        } else {
+            $this->phpci->log('Nothing to check');
+            $success = true;
         }
 
         return $success;
     }
 
-    /**
-     * Process options and produce an arguments string for PHPCS.
-     * @return array
-     */
     protected function getFlags()
     {
         $ignore = '';
@@ -208,23 +217,17 @@ class PhpCodeSniffer implements PHPCI\Plugin, PHPCI\ZeroConfigPlugin
         return array($ignore, $standard, $suffixes);
     }
 
-    /**
-     * Process the PHPCS output report.
-     * @param $output
-     * @return array
-     * @throws \Exception
-     */
-    protected function processReport($output)
+
+    protected function processReport($output,$outputLines)
     {
         $data = json_decode(trim($output), true);
 
         if (!is_array($data)) {
-            $this->phpci->log($output);
-            throw new \Exception(PHPCI\Helper\Lang::get('could_not_process_report'));
+            throw new \Exception('Could not process PHPCS report JSON.');
         }
 
-        $errors = $data['totals']['errors'];
-        $warnings = $data['totals']['warnings'];
+        $errors = 0;
+        $warnings = 0;
 
         $rtn = array();
 
@@ -232,17 +235,47 @@ class PhpCodeSniffer implements PHPCI\Plugin, PHPCI\ZeroConfigPlugin
             $fileName = str_replace($this->phpci->buildPath, '', $fileName);
 
             foreach ($file['messages'] as $message) {
-//                $this->build->reportError($this->phpci, $fileName, $message['line'], 'PHPCS: ' . $message['message']);
 
-                $rtn[] = array(
-                    'file' => $fileName,
-                    'line' => $message['line'],
-                    'type' => $message['type'],
-                    'message' => $message['message'],
-                );
+//                $this->build->reportError($this->phpci, $fileName, $message['line'], 'PHPCSDiffLines: ' . $message['message']);
+
+                if (isset($outputLines[$fileName][$message['line']])) {
+                    $rtn[] = array(
+                        'file'    => $fileName,
+                        'line'    => $message['line'],
+                        'type'    => $message['type'],
+                        'message' => $message['message'],
+                    );
+                    if ($message['type'] == 'WARNING') {
+                        $warnings++;
+                    } elseif ($message['type'] == 'ERROR') {
+                        $errors++;
+                    }
+                }
             }
         }
 
         return array($errors, $warnings, $rtn);
+
     }
+
+    protected function parseLineDiffOutput($outputLines)
+    {
+        $arr = explode("\n", $outputLines);
+
+        $arr2 = [];
+        foreach ($arr as $l)
+        {
+            $pattern = '/(.+?):(\d+?):(.*?)/i';
+
+            preg_match($pattern, $l, $matches);
+            if (count($matches)>0){
+                $arr2[$matches[1]][$matches[2]] = 1;
+            }
+        }
+
+        return $arr2;
+
+
+    }
+
 }

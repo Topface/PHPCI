@@ -16,10 +16,11 @@ use PHPCI\Model\Build;
 /**
 * PHP Code Sniffer Plugin - Allows PHP Code Sniffer testing.
 * @author       Dan Cryer <dan@block8.co.uk>
+* @author       Stan Gumeniuk <s.gumeniuk@topface.com>
 * @package      PHPCI
 * @subpackage   Plugins
 */
-class PhpCodeSniffer implements PHPCI\Plugin, PHPCI\ZeroConfigPlugin
+class PhpCodeSnifferDiff implements PHPCI\Plugin, PHPCI\ZeroConfigPlugin
 {
     /**
      * @var \PHPCI\Builder
@@ -72,13 +73,6 @@ class PhpCodeSniffer implements PHPCI\Plugin, PHPCI\ZeroConfigPlugin
      */
     protected $ignore;
 
-    /**
-     * Check if this plugin can be executed.
-     * @param $stage
-     * @param Builder $builder
-     * @param Build $build
-     * @return bool
-     */
     public static function canExecute($stage, Builder $builder, Build $build)
     {
         if ($stage == 'test') {
@@ -127,10 +121,6 @@ class PhpCodeSniffer implements PHPCI\Plugin, PHPCI\ZeroConfigPlugin
         $this->setOptions($options);
     }
 
-    /**
-     * Handle this plugin's options.
-     * @param $options
-     */
     protected function setOptions($options)
     {
         foreach (array('directory', 'standard', 'path', 'ignore', 'allowed_warnings', 'allowed_errors') as $key) {
@@ -149,35 +139,47 @@ class PhpCodeSniffer implements PHPCI\Plugin, PHPCI\ZeroConfigPlugin
 
         $phpcs = $this->phpci->findBinary('phpcs');
 
+        if (!$phpcs) {
+            $this->phpci->logFailure(PHPCI\Helper\Lang::get('could_not_find', 'phpcs'));
+            return false;
+        }
+
         $this->phpci->logExecOutput(false);
 
-        $cmd = $phpcs . ' --report=json %s %s %s %s %s "%s"';
+        $cmd = 'cd '.$this->phpci->buildPath.' && git diff `git merge-base origin/master '.$this->build->getCommitId().'`  --name-only --diff-filter=ACMRT -- "*.php" | xargs -P8 -r  -- '.$phpcs .' --encoding=utf-8 --report=json %s %s %s %s %s';
+//        $this->phpci->log($cmd);
         $this->phpci->executeCommand(
             $cmd,
             $standard,
             $suffixes,
             $ignore,
             $this->tab_width,
-            $this->encoding,
-            $this->phpci->buildPath . $this->path
+            $this->encoding
         );
 
         $output = $this->phpci->getLastOutput();
-        list($errors, $warnings, $data) = $this->processReport($output);
+//        $this->phpci->log($output); //wtf?!
 
-        $this->phpci->logExecOutput(true);
+        if ($output) {
+            list($errors, $warnings, $data) = $this->processReport($output);
 
-        $success = true;
-        $this->build->storeMeta('phpcs-warnings', $warnings);
-        $this->build->storeMeta('phpcs-errors', $errors);
-        $this->build->storeMeta('phpcs-data', $data);
+            $this->phpci->logExecOutput(true);
 
-        if ($this->allowed_warnings != -1 && $warnings > $this->allowed_warnings) {
-            $success = false;
-        }
+            $success = true;
+            $this->build->storeMeta('phpcsdiff-warnings', $warnings);
+            $this->build->storeMeta('phpcsdiff-errors', $errors);
+            $this->build->storeMeta('phpcsdiff-data', $data);
 
-        if ($this->allowed_errors != -1 && $errors > $this->allowed_errors) {
-            $success = false;
+            if ($this->allowed_warnings != -1 && $warnings > $this->allowed_warnings) {
+                $success = false;
+            }
+
+            if ($this->allowed_errors != -1 && $errors > $this->allowed_errors) {
+                $success = false;
+            }
+        } else {
+            $this->phpci->log('Nothing to check');
+            $success = true;
         }
 
         return $success;
@@ -231,9 +233,11 @@ class PhpCodeSniffer implements PHPCI\Plugin, PHPCI\ZeroConfigPlugin
         foreach ($data['files'] as $fileName => $file) {
             $fileName = str_replace($this->phpci->buildPath, '', $fileName);
 
-            foreach ($file['messages'] as $message) {
-//                $this->build->reportError($this->phpci, $fileName, $message['line'], 'PHPCS: ' . $message['message']);
 
+
+            foreach ($file['messages'] as $message) {
+
+//                $this->build->reportError($this->phpci, $fileName, $message['line'], 'PHPCSDiff: ' . $message['message']);
                 $rtn[] = array(
                     'file' => $fileName,
                     'line' => $message['line'],
