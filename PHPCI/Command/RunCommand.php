@@ -98,9 +98,9 @@ class RunCommand extends Command
             $build = BuildFactory::getBuild($build);
 
             // Skip build (for now) if there's already a build running in that project:
-            if (!$this->isFromDaemon && in_array($build->getProjectId(), $running)) {
-                $this->logger->addInfo(Lang::get('skipping_build', $build->getId()));
-                $result['items'][] = $build;
+            if (!$this->isFromDaemon && array_key_exists($build->getProjectId(), $running)) {
+                $this->logger->addInfo(Lang::get('skipping_build', $build->getId()) . " project id:" . $build->getProjectId());
+                #$result['items'][] = $build;
 
                 // Re-run build validator:
                 $running = $this->validateRunningBuilds();
@@ -117,7 +117,6 @@ class RunCommand extends Command
 
                 $builder = new Builder($build, $this->logger);
                 $builder->execute();
-
                 // After execution we no longer want to record the information
                 // back to this specific build so the handler should be removed.
                 $this->logger->popHandler($buildDbLog);
