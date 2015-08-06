@@ -35,18 +35,90 @@ class RemoteGitBuild extends Build
     {
         $key = trim($this->getProject()->getSshPrivateKey());
 
-        if (!empty($key)) {
-            $success = $this->cloneBySsh($builder, $buildPath);
-        } else {
-            $success = $this->cloneByHttp($builder, $buildPath);
+        //if (!empty($key)) {
+        //    $success = $this->cloneBySsh($builder, $buildPath);
+        //} else {
+        //    $success = $this->cloneByHttp($builder, $buildPath);
+        //}
+
+        $s = $this->checkProjectLocalRepo($builder, $buildPath);
+        $buildDir = $this->getProjectLocalRepoDir($builder, $buildPath);
+
+
+        $success = true;
+
+        if (!$s){
+            $builder->log('Start clone project.');
+            if (!empty($key)) {
+                $success = $this->cloneBySsh($builder, $buildDir);
+            } else {
+                $success = $this->cloneByHttp($builder, $buildDir);
+            }
+            if (!$success) {
+                $builder->logFailure('Failed to clone remote git repository.');
+//                return false;
+                $builder->log('Smthg wrong.');
+            }
+
+            $builder->log('Succefully cloned.');
         }
 
-        if (!$success) {
-            $builder->logFailure('Failed to clone remote git repository.');
+        $s &= $this->pullGit($builder, $buildDir);
+
+        $s &= $this->copyLocaleRepoToBuild($builder, $buildDir,$buildPath);
+
+        $s &=$this->postCopyLocaleRepoToBuild($builder,$buildPath);
+        $s &= $this->postCloneSetup($builder,$buildPath);
+
+        if (!$s){
             return false;
         }
 
+
         return $this->handleConfig($builder, $buildPath);
+    }
+
+    public function initLocaleGitRepo(Builder $builder,$buildPath)
+    {
+
+
+        $s = $this->checkProjectLocalRepo($builder, $buildPath);
+        $buildDir = $this->getProjectLocalRepoDir($builder, $buildPath);
+
+        if (!file_exists($buildDir)){
+            mkdir($buildDir, 0777, true);
+        }
+
+
+        $key = trim($this->getProject()->getSshPrivateKey());
+
+
+
+        if (!$s){
+            $builder->log('Start clone project.');
+            var_dump( $builder->getBuildProjectTitle() . 'Start  clone.');
+            if (!empty($key)) {
+                $success = $this->cloneBySsh($builder, $buildDir);
+            } else {
+                $success = $this->cloneByHttp($builder, $buildDir);
+            }
+            if (!$success) {
+                $builder->logFailure('Failed to clone remote git repository.');
+//                return false;
+                $builder->log('Smthg wrong.');
+                var_dump( $builder->getBuildProjectTitle() . 'Smthg wrong.' );
+            }
+
+            $builder->log('Succefully cloned.');
+            var_dump( $builder->getBuildProjectTitle() . 'Project  cloned.');
+        } else {
+            $builder->log('Project already cloned.');
+            var_dump( $builder->getBuildProjectTitle() . 'Project already cloned.');
+        }
+
+        var_dump($buildDir);
+        $s = $this->pullGit($builder, $buildDir);
+
     }
 
     /**
@@ -72,11 +144,92 @@ class RemoteGitBuild extends Build
         return $success;
     }
 
+
+    protected function postCopyLocaleRepoToBuild(Builder $builder, $to)
+    {
+        $success = true;
+        $commit = $this->getCommitId();
+
+        $keyFile = $this->writeSshKey($to);
+        $gitSshWrapper = $this->writeSshWrapper($to, $keyFile);
+
+
+        $builder->log('Start fetch ');
+
+
+        $cmd = 'export GIT_SSH="'.$gitSshWrapper.'" && ';
+        $cmd .= ' cd "%s" ';
+
+//        $cmd .= ' && git pull --all --quiet';
+        $cmd .= ' && git fetch --all ';
+        $success = $builder->executeCommand($cmd, $to);
+//        $builder->log('Git pull Log is '.(int)$success);
+        $builder->log('Git fetch Log is '.(int)$success);
+
+        return $success;
+    }
+
+    protected function pullGit(Builder $builder,$from)
+    {
+        $success = true;
+
+        $keyFile = $this->writeSshKey($from);
+
+            $gitSshWrapper = $this->writeSshWrapper($from, $keyFile);
+
+        $builder->log('pull origin start');
+
+            $cmd = 'cd "%s"';
+
+            $cmd = 'export GIT_SSH="'.$gitSshWrapper.'" && ' . $cmd;
+
+            $cmd .= ' && git fetch --all && git reset --hard origin/master ';
+
+            $success = $builder->executeCommand($cmd, $from);
+            $builder->log('pull origin finish');
+        return $success;
+    }
+
+    protected function copyLocaleRepoToBuild(Builder $builder,$from, $to)
+    {
+        if (!file_exists($to)) {
+            mkdir($to);
+        }
+
+        $success = $builder->executeCommand("cp -r %s/. %s", $from, $to);
+        if (!$success) {
+            $builder->logFailure('Failed to clone remote git repository.');
+        }
+
+        $success = $builder->executeCommand("chmod -R 777 %s", $to);
+
+        $builder->log('Copy from '. $from.' to '. $to .'success.');
+
+        return $success;
+
+    }
+
+    public function checkProjectLocalRepo(Builder $builder, $cloneTo)
+    {
+        $buildDir = $this->getProjectLocalRepoDir($builder, $cloneTo);
+
+        return file_exists($buildDir);
+    }
+
+    public function getProjectLocalRepoDir(Builder $builder, $cloneTo)
+    {
+        $buildDir = dirname($cloneTo);
+
+        $buildDir .= '/git/'.$builder->getBuildProjectTitle();
+        return $buildDir;
+    }
+
     /**
     * Use an SSH-based git clone.
     */
     protected function cloneBySsh(Builder $builder, $cloneTo)
     {
+
         $keyFile = $this->writeSshKey($cloneTo);
 
         if (!IS_WIN) {
@@ -99,7 +252,10 @@ class RemoteGitBuild extends Build
         }
 
         $success = $builder->executeCommand($cmd, $this->getBranch(), $this->getCloneUrl(), $cloneTo);
-
+        var_dump("1");
+        var_dump($this->getBranch());
+        var_dump($this->getCloneUrl());
+//        die();
         if ($success) {
             $success = $this->postCloneSetup($builder, $cloneTo);
         }
@@ -121,19 +277,58 @@ class RemoteGitBuild extends Build
      */
     protected function postCloneSetup(Builder $builder, $cloneTo)
     {
+
+        $keyFile = $this->writeSshKey($cloneTo);
+
         $success = true;
         $commit = $this->getCommitId();
+        $builder->log('Commit is '. $commit);
 
         $chdir = IS_WIN ? 'cd /d "%s"' : 'cd "%s"';
 
-        if (!empty($commit) && $commit != 'Manual') {
-            $cmd = $chdir . ' && git checkout %s --quiet';
-            $success = $builder->executeCommand($cmd, $cloneTo, $commit);
-        }
+        $builder->log('post');
 
-        // Always update the commit hash with the actual HEAD hash
-        if ($builder->executeCommand($chdir . ' && git rev-parse HEAD', $cloneTo)) {
-            $this->setCommitId(trim($builder->getLastOutput()));
+        if (!empty($commit) && $commit != 'Manual') {
+
+            $cmd = 'cd "%s"';
+
+            if (IS_WIN) {
+                $cmd = 'cd /d "%s"';
+            }
+
+            if (!IS_WIN) {
+                $gitSshWrapper = $this->writeSshWrapper($cloneTo, $keyFile);
+                $cmd = 'export GIT_SSH="' . $gitSshWrapper . '" && ' . $cmd;
+            }
+
+            $cmd .= ' && git reset --hard && git checkout %s --quiet --force';
+
+            $success = $builder->executeCommand($cmd, $cloneTo, $this->getCommitId(), $this->getCommitId());
+            $builder->log('Post clone setup(1): Log is' . $success . ' ' . $this->getCommitId());
+            // Always update the commit hash with the actual HEAD hash
+            if ($builder->executeCommand($chdir . ' && git rev-parse HEAD', $cloneTo)) {
+                $this->setCommitId(trim($builder->getLastOutput()));
+            }
+        } else {
+            $cmd = 'cd "%s"';
+
+            if (IS_WIN) {
+                $cmd = 'cd /d "%s"';
+            }
+
+            if (!IS_WIN) {
+                $gitSshWrapper = $this->writeSshWrapper($cloneTo, $keyFile);
+                $cmd = 'export GIT_SSH="' . $gitSshWrapper . '" && ' . $cmd;
+            }
+
+            $cmd .= ' && git reset --hard && git checkout %s --quiet --force';
+
+            $success = $builder->executeCommand($cmd, $cloneTo, 'HEAD');
+            $builder->log('Post clone setup(2): Log is' . $success . ' ' . 'HEAD');
+            // Always update the commit hash with the actual HEAD hash
+            if ($builder->executeCommand($chdir . ' && git rev-parse HEAD', $cloneTo)) {
+                $this->setCommitId(trim($builder->getLastOutput()));
+            }
         }
 
         return $success;
